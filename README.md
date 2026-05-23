@@ -1,6 +1,6 @@
 # ✝️ Free Christian E-Books and PDFs — File Browser App
 
-A lightweight, SEO-friendly, mobile-first PHP file browser built to serve free Christian e-books, PDFs, audio Bibles and more at [christianpdf.com](https://christianpdf.com).
+A lightweight, SEO-friendly, mobile-first PHP file browser built to serve free Christian e-books, PDFs, audio Bibles and more at [same-website.com](https://same-website.com).
 
 ---
 
@@ -80,8 +80,8 @@ Then open **http://localhost:3000** in your browser.
 Append `?embed=1` or `&embed=1` to any URL to render only the file list — no header, breadcrumb, or footer. Navigation within the embedded view keeps `embed=1` active.
 
 ```
-https://christianpdf.com/?embed=1
-https://christianpdf.com/?path=Tamil-Christian-Books&embed=1
+https://same-website.com/?embed=1
+https://same-website.com/?path=Tamil-Christian-Books&embed=1
 ```
 
 ---
@@ -99,4 +99,4 @@ See [LICENSE](LICENSE).
 
 ---
 
-> We do not own any of the books in this repository. They were collected from various sources — internet, WhatsApp, Cloud Drives, etc. If you want your book removed, email **admin@christianpdf.com**.
+> We do not own any of the books in this repository. They were collected from various sources — internet, WhatsApp, Cloud Drives, etc. If you want your book removed, email **admin@same-website.com**.
