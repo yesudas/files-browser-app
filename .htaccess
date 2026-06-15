@@ -1,0 +1,88 @@
+# ── Prevent directory listing ──
+Options -Indexes
+
+# ── Set index file ──
+DirectoryIndex index.php
+
+# ── Enable rewrite engine ──
+RewriteEngine On
+
+# ── Force HTTPS (uncomment if your host supports it) ──
+# RewriteCond %{HTTPS} off
+# RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# ── Protect sensitive files from direct access ──
+<FilesMatch "^(counter\.txt|bot\.log|\.DS_Store|.*\.ffs_db|.*\.ffs_lock)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# ── Block direct access to the data/ directory ───────────────────
+# (files must be served through download.php)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^data/(.*)$ - [F,L]
+</IfModule>
+
+# ── PHP settings for uploads ──────────────────────────────────────
+<IfModule mod_php.c>
+    php_value upload_max_filesize  512M
+    php_value post_max_size        520M
+    php_value max_execution_time   300
+    php_value max_input_time       300
+    php_value memory_limit         256M
+    # Prevent uploaded files from being interpreted as PHP
+    php_flag  engine Off
+</IfModule>
+<IfModule mod_php8.c>
+    php_value upload_max_filesize  512M
+    php_value post_max_size        520M
+    php_value max_execution_time   300
+    php_value max_input_time       300
+    php_value memory_limit         256M
+    php_flag  engine Off
+</IfModule>
+
+# ── Security headers ──────────────────────────────────────────────
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "same-origin"
+</IfModule>
+
+Header always set Content-Security-Policy: upgrade-insecure-requests
+
+## 🤖 Fine-Tuned Bot Blocking ##
+
+# 1. Block known bad bots only (empty UA check removed — causes false positives)
+# RewriteCond %{HTTP_USER_AGENT} (curl|python-requests|wget|libwww-perl|MJ12bot|AhrefsBot|SemrushBot|GPTBot|ClaudeBot) [NC]
+# RewriteRule .* - [F,L]
+ 
+ErrorDocument 403     /cgi-sys/403_def.html
+ErrorDocument 404     /cgi-sys/404_def.html
+ErrorDocument 500     /cgi-sys/500_def.html
+ErrorDocument 502     /cgi-sys/502_def.html
+ErrorDocument 503     /cgi-sys/503_def.html
+ErrorDocument 504     /cgi-sys/504_def.html
+
+# php -- BEGIN cPanel-generated handler, do not edit
+# Set the “ea-php82” package as the default “PHP” programming language.
+<IfModule mime_module>
+  AddHandler application/x-httpd-ea-php82___lsphp .php .php8 .phtml
+</IfModule>
+# php -- END cPanel-generated handler, do not edit
+
+# ── PHP settings (if allowed by host) ──
+<IfModule mod_php.c>
+    php_flag display_errors Off
+</IfModule>
+
+# ── Cache static assets ──
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css             "access plus 7 days"
+    ExpiresByType application/javascript "access plus 7 days"
+    ExpiresByType image/png            "access plus 30 days"
+    ExpiresByType image/jpeg           "access plus 30 days"
+    ExpiresByType application/manifest+json "access plus 1 day"
+</IfModule>

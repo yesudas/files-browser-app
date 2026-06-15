@@ -22,6 +22,7 @@ A lightweight, SEO-friendly, mobile-first PHP file browser built to serve free C
   - Service worker with network-first caching
 - 🔍 **SEO Friendly** — Dynamic `<title>`, meta description, canonical URL, Open Graph tags, JSON-LD Schema.org markup
 - 🖥️ **Embed Mode** — Append `&embed=1` to any URL to show only the file list (hides header, breadcrumb, footer) — useful for embedding in iframes
+- 🛡️ **Admin Panel** — Password-protected control panel (`a.php`) to create folders, upload files/folders, rename, and delete — all restricted to `data/`
 
 ---
 
@@ -31,6 +32,7 @@ A lightweight, SEO-friendly, mobile-first PHP file browser built to serve free C
 files-browser-app/
 ├── index.php          # Main file browser
 ├── download.php       # Secure file download handler
+├── a.php              # Admin control panel (password protected)
 ├── counter.php        # Visitor counter (bot-aware)
 ├── bot.php            # Bot honeypot logger
 ├── sw.js              # PWA Service Worker
@@ -72,6 +74,33 @@ Then open **http://localhost:3000** in your browser.
    ```bash
    chmod 644 counter.txt bot.log
    ```
+
+---
+
+## 🛡️ Admin Panel (`a.php`)
+
+Access the admin panel at `/a.php`. Login with the configured credentials.
+
+**Features:**
+- Create new folders inside any directory
+- Upload individual files (up to 512 MB each)
+- Upload an entire folder tree (via browser folder picker)
+- Rename files and folders
+- Delete files and folders (with confirmation)
+
+**Security:**
+- bcrypt password hashing (cost 12)
+- 5-attempt brute-force lockout (15-minute cooldown)
+- CSRF tokens on all forms
+- All paths validated with `realpath()` — no path traversal possible
+- Extension whitelist — PHP and script files cannot be uploaded
+- `noindex, nofollow` — admin page is not indexed by search engines
+
+**Changing the password:**
+```bash
+php -r "echo password_hash('newpassword', PASSWORD_BCRYPT, ['cost'=>12]);"
+```
+Paste the output into the `ADMIN_HASH` constant at the top of `a.php`.
 
 ---
 
