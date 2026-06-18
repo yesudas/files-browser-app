@@ -85,6 +85,14 @@ function humanFileSize($bytes) {
     return $bytes . ' B';
 }
 
+// Helper: normalize a string for search matching
+// Converts hyphens and underscores to spaces, lowercases, collapses whitespace
+function normalizeForSearch($s) {
+    $s = str_replace(['-', '_'], ' ', $s);
+    $s = mb_strtolower($s, 'UTF-8');
+    return trim(preg_replace('/\s+/', ' ', $s));
+}
+
 // Build breadcrumb parts
 $breadcrumbParts = [];
 if ($requestedPath !== '') {
@@ -125,6 +133,33 @@ if (is_dir($fullPath)) {
 // Sort alphabetically
 usort($dirs,  fn($a, $b) => strcasecmp($a['name'], $b['name']));
 usort($files, fn($a, $b) => strcasecmp($a['name'], $b['name']));
+
+// Search
+$searchQuery   = trim($_GET['q'] ?? '');
+$isSearch      = $searchQuery !== '';
+$indexBuilt    = file_exists(__DIR__ . '/search-index.json');
+$searchResults = [];
+
+if ($isSearch && $indexBuilt) {
+    $rawIndex = @file_get_contents(__DIR__ . '/search-index.json');
+    $idx      = $rawIndex ? json_decode($rawIndex, true) : null;
+    if ($idx && !empty($idx['items'])) {
+        $normalizedQ = normalizeForSearch($searchQuery);
+        // Split into words so "Tamil Bible" matches "Tamil-Bible.pdf"
+        $words = array_values(array_filter(explode(' ', $normalizedQ), fn($w) => $w !== ''));
+        foreach ($idx['items'] as $item) {
+            // Search against the filename (without extension) plus every path segment
+            $target = normalizeForSearch(pathinfo($item['n'], PATHINFO_FILENAME))
+                    . ' '
+                    . normalizeForSearch(str_replace('/', ' ', $item['p']));
+            $match = true;
+            foreach ($words as $word) {
+                if (!str_contains($target, $word)) { $match = false; break; }
+            }
+            if ($match) $searchResults[] = $item;
+        }
+    }
+}
 
 // Page meta
 $pageTitle = 'Free Christian E-Books and PDFs';
@@ -219,9 +254,77 @@ $embedSuffix = $isEmbed ? '&embed=1' : '';
     <?php endforeach; ?>
     </div>
 </nav>
+
+<!-- Search bar -->
+<div class="search-wrap">
+    <form class="search-form" action="index.php" method="get" role="search">
+        <input type="search" name="q" class="search-input"
+               placeholder="Search files and folders…"
+               value="<?= htmlspecialchars($searchQuery) ?>"
+               autocomplete="off" aria-label="Search">
+        <button type="submit" class="search-btn">🔍 Search</button>
+        <?php if ($isSearch): ?>
+            <a href="index.php" class="search-clear" aria-label="Clear search">✕ Clear</a>
+        <?php endif; ?>
+    </form>
+</div>
 <?php endif; ?>
 
 <main>
+
+<?php if ($isSearch): ?>
+
+    <div class="file-list">
+        <div class="file-list-header">
+            <span>🔍 Results for "<?= htmlspecialchars($searchQuery) ?>"</span>
+            <span><?= count($searchResults) ?> result<?= count($searchResults) !== 1 ? 's' : '' ?></span>
+        </div>
+
+        <?php if (!$indexBuilt): ?>
+            <div class="empty-state">
+                <span>⚙️</span>
+                Search index not built yet. The admin needs to run the indexer at <code>i.php</code>.
+            </div>
+
+        <?php elseif (empty($searchResults)): ?>
+            <div class="empty-state">
+                <span>🔍</span>
+                No results found for "<?= htmlspecialchars($searchQuery) ?>".
+                <br><a href="index.php" style="color:var(--accent);font-size:.85rem;">Browse all categories</a>
+            </div>
+
+        <?php else: ?>
+            <?php foreach ($searchResults as $res):
+                $resIsDir  = $res['t'] === 'd';
+                $resIcon   = $resIsDir ? '📁' : getFileIcon($res['n']);
+                $resName   = displayName(pathinfo($res['n'], $resIsDir ? PATHINFO_BASENAME : PATHINFO_FILENAME));
+                $resExt    = !$resIsDir ? pathinfo($res['n'], PATHINFO_EXTENSION) : '';
+                $resHref   = $resIsDir
+                    ? 'index.php?path=' . encodeFileParam($res['p']) . $embedSuffix
+                    : 'download.php?file=' . encodeFileParam($res['p']);
+                $resParent = dirname($res['p']);
+                $resParent = ($resParent === '.' || $resParent === '') ? '' : $resParent;
+                $resCrumbs = $resParent !== '' ? array_map('displayName', explode('/', $resParent)) : [];
+            ?>
+            <a class="file-item" href="<?= $resHref ?>"
+               title="<?= htmlspecialchars($res['n']) ?>">
+                <span class="icon"><?= $resIcon ?></span>
+                <span class="name">
+                    <?= htmlspecialchars($resName) ?><?php if ($resExt): ?><span style="color:var(--muted);font-size:.8em">.<?= htmlspecialchars($resExt) ?></span><?php endif; ?>
+                    <?php if (!empty($resCrumbs)): ?>
+                        <span class="result-path">📂 <?= htmlspecialchars(implode(' › ', $resCrumbs)) ?></span>
+                    <?php endif; ?>
+                </span>
+                <?php if (!$resIsDir && isset($res['s'])): ?>
+                    <span class="meta"><?= humanFileSize((int)$res['s']) ?></span>
+                <?php endif; ?>
+            </a>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+
+<?php else: ?>
+
     <div class="file-list">
         <div class="file-list-header">
             <span>
@@ -286,6 +389,9 @@ $embedSuffix = $isEmbed ? '&embed=1' : '';
 
         <?php endif; ?>
     </div>
+
+<?php endif; ?>
+
 </main>
 
 <div class="copy-link-wrap">

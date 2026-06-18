@@ -777,6 +777,7 @@ $csrf = csrfToken();
         <a class="btn btn-secondary" href="<?= htmlspecialchars($parentUrl) ?>">⬆️ Up one level</a>
     <?php endif; ?>
     <a class="btn btn-secondary" href="index.php<?= $currentPath !== '' ? '?path=' . rawurlencode($currentPath) : '' ?>" target="_blank">👁️ View Public</a>
+    <a class="btn btn-secondary" href="i.php" title="Rebuild the search index after adding or removing files">⚙️ Rebuild Search Index</a>
 </div>
 
 <!-- Panel: Create Folder -->
