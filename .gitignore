@@ -1,6 +1,7 @@
 counter.txt
 .DS_Store
 /data/
+/reports/
 .sync.ffs_db
 **/.DS_Store
 bot.log

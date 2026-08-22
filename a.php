@@ -357,6 +357,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isLoggedIn()) {
         }
     }
 
+    // Hide a reported file from the public site (rename with "HIDE - " prefix)
+    if ($action === 'hide_report_file') {
+        $filePath = $_POST['file_path'] ?? '';
+        $full     = resolveDataPath($filePath);
+
+        if (!$full || !is_file($full)) {
+            $msg = 'File not found.'; $msgType = 'error';
+        } else {
+            $dir  = dirname($full);
+            $name = basename($full);
+            if (stripos($name, 'HIDE') === 0) {
+                $msg = "\"$name\" is already hidden."; $msgType = 'success';
+            } else {
+                $newName = 'HIDE - ' . $name;
+                $newFull = $dir . DIRECTORY_SEPARATOR . $newName;
+                if (file_exists($newFull)) {
+                    $msg = 'A hidden version of this file already exists.'; $msgType = 'error';
+                } elseif (rename($full, $newFull)) {
+                    $msg = "\"$name\" has been hidden from the public site."; $msgType = 'success';
+                } else {
+                    $msg = 'Failed to hide file. Check server permissions.'; $msgType = 'error';
+                }
+            }
+        }
+        header('Location: a.php?view=reports');
+        exit;
+    }
+
+    // Delete a copyright report
+    if ($action === 'delete_report') {
+        $reportsDir  = realpath(__DIR__ . '/reports');
+        $reportName  = basename($_POST['report_id'] ?? '');
+        $reportFile  = $reportsDir ? $reportsDir . DIRECTORY_SEPARATOR . $reportName : false;
+        if ($reportsDir && $reportFile && pathinfo($reportFile, PATHINFO_EXTENSION) === 'json'
+            && is_file($reportFile) && dirname(realpath($reportFile)) === $reportsDir) {
+            @unlink($reportFile);
+        }
+        header('Location: a.php?view=reports');
+        exit;
+    }
+
     // Delete
     if ($action === 'delete') {
         $itemPath = $_POST['item_path'] ?? '';
@@ -491,6 +532,157 @@ if (!isLoggedIn()) { ?>
     exit;
 }
 
+// ── Copyright reports view ────────────────────────────────────────────────────
+if (($_GET['view'] ?? '') === 'reports') {
+    $csrf = csrfToken();
+
+    $reportsDir = __DIR__ . '/reports';
+    $reports = [];
+    if (is_dir($reportsDir)) {
+        foreach (glob($reportsDir . '/*.json') as $reportFile) {
+            $data = json_decode((string)@file_get_contents($reportFile), true);
+            if (is_array($data)) {
+                $data['_file'] = basename($reportFile);
+                $reports[] = $data;
+            }
+        }
+    }
+    usort($reports, fn($a, $b) => strcmp($b['timestamp'] ?? '', $a['timestamp'] ?? ''));
+    ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Copyright Reports — Admin</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="stylesheet" href="styles.css?v=<?= filemtime(__DIR__ . '/styles.css') ?>">
+    <style>
+        .admin-header {
+            background: linear-gradient(135deg, #154360 0%, #1a2535 100%);
+            color: #fff; padding: 14px 20px;
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        }
+        .admin-header h1 { font-size: 1.15rem; font-weight: 700; }
+        .btn-logout {
+            background: rgba(255,255,255,.15); color: #fff;
+            border: 1px solid rgba(255,255,255,.3); padding: 7px 16px;
+            border-radius: 6px; font-size: .83rem; font-weight: 600; cursor: pointer;
+        }
+        .btn-logout:hover { background: rgba(255,255,255,.25); }
+        .action-bar { max-width: 960px; margin: 16px auto 0; padding: 0 16px; }
+        .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px;
+            border-radius: 7px; font-size: .85rem; font-weight: 600; cursor: pointer;
+            border: none; text-decoration: none; }
+        .btn-secondary { background: #f0f4f8; color: #2c3e50; border: 1px solid #dce3ec; }
+        .btn-secondary:hover { background: #e2ecf5; }
+        .alert { max-width: 960px; margin: 14px auto 0; padding: 11px 16px; border-radius: 8px; font-size: .88rem; font-weight: 500; }
+        .alert-success { background: #eafaf1; color: #1e8449; border: 1px solid #a9dfbf; }
+        .alert-error   { background: #fdf2f2; color: #c0392b; border: 1px solid #f5c6cb; }
+        .reports-wrap { max-width: 960px; margin: 20px auto; padding: 0 16px; }
+        .report-card {
+            background: #fff; border: 1px solid #dce3ec; border-radius: 10px;
+            padding: 16px 18px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.06);
+        }
+        .report-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+        .report-file { font-weight: 700; color: #1a5276; font-size: .95rem; word-break: break-word; }
+        .report-date { font-size: .75rem; color: #7f8c8d; }
+        .report-owns { display: inline-block; margin-top: 4px; padding: 2px 8px; border-radius: 10px; font-size: .72rem; font-weight: 700; }
+        .report-owns.yes { background: #eafaf1; color: #1e8449; }
+        .report-owns.no  { background: #fdf2f2; color: #c0392b; }
+        .report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px 16px; margin-top: 10px; font-size: .85rem; }
+        .report-grid dt { font-weight: 600; color: #2c3e50; }
+        .report-grid dd { color: #566573; word-break: break-word; }
+        .report-details { margin-top: 10px; font-size: .85rem; background: #f9fbfd; border-radius: 7px; padding: 10px 12px; color: #2c3e50; white-space: pre-wrap; }
+        .report-actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+        .btn-danger-sm {
+            background: #e74c3c; color: #fff; border: none; padding: 6px 14px;
+            border-radius: 6px; font-size: .78rem; font-weight: 600; cursor: pointer;
+        }
+        .btn-danger-sm:hover { background: #c0392b; }
+        .btn-hide-sm {
+            background: #566573; color: #fff; border: none; padding: 6px 14px;
+            border-radius: 6px; font-size: .78rem; font-weight: 600; cursor: pointer;
+        }
+        .btn-hide-sm:hover { background: #3e4a56; }
+        .empty-state { text-align: center; padding: 48px 20px; color: #7f8c8d; font-size: .95rem; }
+    </style>
+</head>
+<body>
+
+<div class="admin-header">
+    <h1>🚩 Copyright Reports <span style="opacity:.7;font-weight:400;">(<?= count($reports) ?>)</span></h1>
+    <form method="POST" action="a.php">
+        <input type="hidden" name="action" value="logout">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf) ?>">
+        <button type="submit" class="btn-logout">Logout</button>
+    </form>
+</div>
+
+<div class="action-bar">
+    <a class="btn btn-secondary" href="a.php">⬅ Back to File Browser</a>
+</div>
+
+<?php if ($msg): ?>
+    <div class="alert alert-<?= $msgType ?>"><?= htmlspecialchars($msg) ?></div>
+<?php endif; ?>
+
+<div class="reports-wrap">
+    <?php if (empty($reports)): ?>
+        <div class="empty-state">
+            <span style="font-size:2.5rem;display:block;margin-bottom:10px;">📭</span>
+            No copyright reports have been submitted yet.
+        </div>
+    <?php else: ?>
+        <?php foreach ($reports as $r): ?>
+            <div class="report-card">
+                <div class="report-card-top">
+                    <div>
+                        <div class="report-file">📄 <?= htmlspecialchars($r['file_path'] ?? $r['file_name'] ?? 'Unknown file') ?></div>
+                        <div class="report-date"><?= htmlspecialchars($r['timestamp'] ?? '') ?></div>
+                        <span class="report-owns <?= ($r['owns'] ?? '') === 'yes' ? 'yes' : 'no' ?>">
+                            <?= ($r['owns'] ?? '') === 'yes' ? '✅ Claims ownership' : '⚠️ Does not own' ?>
+                        </span>
+                    </div>
+                </div>
+                <dl class="report-grid">
+                    <div><dt>Name</dt><dd><?= htmlspecialchars($r['name'] ?? '') ?></dd></div>
+                    <div><dt>Mobile/WhatsApp</dt><dd><?= htmlspecialchars($r['mobile'] ?? '') ?></dd></div>
+                    <div><dt>Email</dt><dd><?= htmlspecialchars($r['email'] !== '' ? $r['email'] : '—') ?></dd></div>
+                    <div><dt>IP</dt><dd><?= htmlspecialchars($r['ip'] ?? '') ?></dd></div>
+                </dl>
+                <?php if (!empty($r['details'])): ?>
+                    <div class="report-details"><?= nl2br(htmlspecialchars($r['details'])) ?></div>
+                <?php endif; ?>
+                <div class="report-actions">
+                    <?php if (!empty($r['file_path'])): ?>
+                        <form method="POST" action="a.php?view=reports"
+                              onsubmit="return confirm('Hide this file from the public site? It will be renamed with a HIDE prefix.');">
+                            <input type="hidden" name="action" value="hide_report_file">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf) ?>">
+                            <input type="hidden" name="file_path" value="<?= htmlspecialchars($r['file_path']) ?>">
+                            <button type="submit" class="btn-hide-sm">🙈 Hide the Reported File</button>
+                        </form>
+                    <?php endif; ?>
+                    <form method="POST" action="a.php?view=reports"
+                          onsubmit="return confirm('Delete this report?');">
+                        <input type="hidden" name="action" value="delete_report">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf) ?>">
+                        <input type="hidden" name="report_id" value="<?= htmlspecialchars($r['_file']) ?>">
+                        <button type="submit" class="btn-danger-sm">🗑️ Delete Report</button>
+                    </form>
+                </div>
+            </div>
+        <?php endforeach; ?>
+    <?php endif; ?>
+</div>
+
+</body>
+</html>
+    <?php
+    exit;
+}
+
 // ── Directory listing ─────────────────────────────────────────────────────────
 render_page:
 
@@ -539,6 +731,9 @@ if ($currentPath !== '') {
 }
 
 $csrf = csrfToken();
+
+$reportCount = 0;
+foreach ((glob(__DIR__ . '/reports/*.json') ?: []) as $rf) { $reportCount++; }
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -778,6 +973,7 @@ $csrf = csrfToken();
     <?php endif; ?>
     <a class="btn btn-secondary" href="index.php<?= $currentPath !== '' ? '?path=' . rawurlencode($currentPath) : '' ?>" target="_blank">👁️ View Public</a>
     <a class="btn btn-secondary" href="i.php" title="Rebuild the search index after adding or removing files">⚙️ Rebuild Search Index</a>
+    <a class="btn btn-secondary" href="a.php?view=reports">🚩 Copyright Reports<?= $reportCount > 0 ? " ($reportCount)" : '' ?></a>
 </div>
 
 <!-- Panel: Create Folder -->

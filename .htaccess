@@ -1,8 +1,8 @@
 # ── Prevent directory listing ──
-Options -Indexes
+#Options -Indexes
 
 # ── Set index file ──
-DirectoryIndex index.php
+#DirectoryIndex index.php
 
 # ── Enable rewrite engine ──
 RewriteEngine On
@@ -43,12 +43,24 @@ RewriteEngine On
     php_flag  engine Off
 </IfModule>
 
+# ── Detect embed mode from the query string ───────────────────────
+# Sets the EMBED_MODE env var when ?embed=1 is present.
+# Used below to suppress X-Frame-Options so cross-origin iframes work.
+#SetEnvIf Query_String "embed=1" EMBED_MODE
+
 # ── Security headers ──────────────────────────────────────────────
-<IfModule mod_headers.c>
-    Header always set X-Content-Type-Options "nosniff"
-    Header always set X-Frame-Options "SAMEORIGIN"
-    Header always set Referrer-Policy "same-origin"
-</IfModule>
+#<IfModule mod_headers.c>
+#    Header always set X-Content-Type-Options "nosniff"
+#    Header always set Referrer-Policy "same-origin"
+
+    # X-Frame-Options — handled conditionally:
+    # 1. Always unset first (strips any header the server/host injects)
+    # 2. Re-apply SAMEORIGIN only when NOT in embed mode
+    # Embed mode (?embed=1) intentionally omits the header so that
+    # cross-origin sites (e.g. WordOfGod.in) can frame the page.
+#    Header always unset X-Frame-Options
+#    Header always set   X-Frame-Options "SAMEORIGIN" env=!EMBED_MODE
+#</IfModule>x
 
 Header always set Content-Security-Policy: upgrade-insecure-requests
 

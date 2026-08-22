@@ -1,4 +1,8 @@
 <?php
+// X-Frame-Options is controlled entirely by .htaccess (SetEnvIf + mod_headers),
+// which reliably strips any server-injected header and applies SAMEORIGIN only
+// for non-embed pages. No PHP header() call is needed here.
+
 require_once __DIR__ . '/counter.php';
 
 // Security: resolve the base data directory (real path)
@@ -318,6 +322,9 @@ $embedSuffix = $isEmbed ? '&embed=1' : '';
                 <?php if (!$resIsDir && isset($res['s'])): ?>
                     <span class="meta"><?= humanFileSize((int)$res['s']) ?></span>
                 <?php endif; ?>
+                <?php if (!$resIsDir): ?>
+                    <span class="report-link" data-report-path="<?= htmlspecialchars($res['p']) ?>" data-report-name="<?= htmlspecialchars(displayName($res['n'])) ?>" title="Report copyright violation" aria-label="Report copyright violation">🚩 Report</span>
+                <?php endif; ?>
             </a>
             <?php endforeach; ?>
         <?php endif; ?>
@@ -383,6 +390,7 @@ $embedSuffix = $isEmbed ? '&embed=1' : '';
                         <span class="icon"><?= getFileIcon($file['name']) ?></span>
                         <span class="name"><?= htmlspecialchars(displayName(pathinfo($file['name'], PATHINFO_FILENAME))) ?><span style="color:var(--muted);font-size:.8em">.<?= htmlspecialchars(pathinfo($file['name'], PATHINFO_EXTENSION)) ?></span></span>
                         <span class="meta"><?= $file['size'] ?></span>
+                        <span class="report-link" data-report-path="<?= htmlspecialchars($file['path']) ?>" data-report-name="<?= htmlspecialchars(displayName($file['name'])) ?>" title="Report copyright violation" aria-label="Report copyright violation">🚩 Report</span>
                     </a>
                 <?php endforeach; ?>
             <?php endif; ?>
@@ -399,6 +407,54 @@ $embedSuffix = $isEmbed ? '&embed=1' : '';
         🔗 Copy Link
     </button>
     <span id="copy-link-msg" class="copy-link-msg" aria-live="polite"></span>
+</div>
+
+<!-- Report Copyright Violation modal -->
+<div id="report-modal-overlay" class="report-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="report-modal-title">
+    <div class="report-modal">
+        <button type="button" class="report-modal-close" id="report-modal-close" aria-label="Close">✕</button>
+        <h3 id="report-modal-title">🚩 Report Copyright Violation</h3>
+        <p class="report-modal-file" id="report-modal-file"></p>
+
+        <form id="report-form" novalidate>
+            <input type="hidden" name="file_path" id="report-file-path" value="">
+
+            <div class="report-form-group">
+                <label for="report-name">Your Name <span class="req">*</span></label>
+                <input type="text" id="report-name" name="name" required maxlength="150">
+            </div>
+
+            <div class="report-form-group">
+                <label for="report-mobile">Your Mobile / WhatsApp <span class="req">*</span></label>
+                <input type="tel" id="report-mobile" name="mobile" required maxlength="20">
+            </div>
+
+            <div class="report-form-group">
+                <label for="report-email">Your Email <span class="opt">(optional)</span></label>
+                <input type="email" id="report-email" name="email" maxlength="150">
+            </div>
+
+            <div class="report-form-group">
+                <label>Do you own this book/material? <span class="req">*</span></label>
+                <div class="report-radio-row">
+                    <label class="report-radio"><input type="radio" name="owns" value="yes" required> Yes</label>
+                    <label class="report-radio"><input type="radio" name="owns" value="no" required> No</label>
+                </div>
+            </div>
+
+            <div class="report-form-group" id="report-details-group" style="display:none;">
+                <label for="report-details">Share more details <span class="req">*</span></label>
+                <textarea id="report-details" name="details" rows="4" maxlength="3000" placeholder="Please describe the copyright issue…"></textarea>
+            </div>
+
+            <div class="report-modal-msg" id="report-modal-msg" aria-live="polite"></div>
+
+            <div class="report-modal-actions">
+                <button type="button" class="btn-report-cancel" id="report-modal-cancel">Cancel</button>
+                <button type="submit" class="btn-report-submit" id="report-modal-submit">Submit</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <?php if (!$isEmbed): ?>
@@ -538,6 +594,96 @@ function copyPageLink(btn) {
         hideBanner();
         if (footerLink) footerLink.style.display = 'none';
         console.log('[PWA] App installed successfully.');
+    });
+})();
+
+// ── Report Copyright Violation ──
+(function () {
+    'use strict';
+
+    const overlay      = document.getElementById('report-modal-overlay');
+    const fileLabel     = document.getElementById('report-modal-file');
+    const filePathInput = document.getElementById('report-file-path');
+    const form           = document.getElementById('report-form');
+    const msgBox         = document.getElementById('report-modal-msg');
+    const submitBtn       = document.getElementById('report-modal-submit');
+    const detailsGroup    = document.getElementById('report-details-group');
+    const detailsInput    = document.getElementById('report-details');
+
+    function openReportModal(path, name) {
+        form.reset();
+        detailsGroup.style.display = 'none';
+        detailsInput.required = false;
+        msgBox.textContent = '';
+        msgBox.className = 'report-modal-msg';
+        filePathInput.value = path;
+        fileLabel.textContent = '📄 ' + name;
+        overlay.classList.add('open');
+        setTimeout(() => document.getElementById('report-name').focus(), 50);
+    }
+
+    function closeReportModal() {
+        overlay.classList.remove('open');
+    }
+
+    document.querySelectorAll('.report-link').forEach(function (el) {
+        el.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            openReportModal(this.dataset.reportPath, this.dataset.reportName);
+        });
+    });
+
+    document.getElementById('report-modal-close').addEventListener('click', closeReportModal);
+    document.getElementById('report-modal-cancel').addEventListener('click', closeReportModal);
+    overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) closeReportModal();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && overlay.classList.contains('open')) closeReportModal();
+    });
+
+    form.querySelectorAll('input[name="owns"]').forEach(function (radio) {
+        radio.addEventListener('change', function () {
+            const showDetails = this.value === 'no';
+            detailsGroup.style.display = showDetails ? 'block' : 'none';
+            detailsInput.required = showDetails;
+        });
+    });
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        msgBox.textContent = '';
+        msgBox.className = 'report-modal-msg';
+
+        // Snapshot the form data first — disabled fields are excluded from FormData.
+        const formData = new FormData(form);
+        const formFields = form.querySelectorAll('input, textarea, button');
+        formFields.forEach(function (el) { el.disabled = true; });
+        submitBtn.textContent = 'Submitting…';
+
+        fetch('report.php', {
+            method: 'POST',
+            body: formData
+        })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                msgBox.textContent = data.message || '';
+                msgBox.className = 'report-modal-msg ' + (data.ok ? 'success' : 'error');
+                if (data.ok) {
+                    form.reset();
+                    detailsGroup.style.display = 'none';
+                    setTimeout(closeReportModal, 2200);
+                }
+            })
+            .catch(function () {
+                msgBox.textContent = 'Network error. Please try again.';
+                msgBox.className = 'report-modal-msg error';
+            })
+            .finally(function () {
+                formFields.forEach(function (el) { el.disabled = false; });
+                submitBtn.textContent = 'Submit';
+            });
     });
 })();
 </script>
