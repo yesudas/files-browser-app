@@ -323,7 +323,7 @@ $embedSuffix = $isEmbed ? '&embed=1' : '';
                     <span class="meta"><?= humanFileSize((int)$res['s']) ?></span>
                 <?php endif; ?>
                 <?php if (!$resIsDir): ?>
-                    <span class="report-link" data-report-path="<?= htmlspecialchars($res['p']) ?>" data-report-name="<?= htmlspecialchars(displayName($res['n'])) ?>" title="Report copyright violation" aria-label="Report copyright violation">🚩 Report</span>
+                    <span class="report-link" data-report-path="<?= htmlspecialchars($res['p']) ?>" data-report-name="<?= htmlspecialchars(displayName($res['n'])) ?>" title="Report copyright violation" aria-label="Report copyright violation">🚩<span class="report-link-text"> Report</span></span>
                 <?php endif; ?>
             </a>
             <?php endforeach; ?>
@@ -390,7 +390,7 @@ $embedSuffix = $isEmbed ? '&embed=1' : '';
                         <span class="icon"><?= getFileIcon($file['name']) ?></span>
                         <span class="name"><?= htmlspecialchars(displayName(pathinfo($file['name'], PATHINFO_FILENAME))) ?><span style="color:var(--muted);font-size:.8em">.<?= htmlspecialchars(pathinfo($file['name'], PATHINFO_EXTENSION)) ?></span></span>
                         <span class="meta"><?= $file['size'] ?></span>
-                        <span class="report-link" data-report-path="<?= htmlspecialchars($file['path']) ?>" data-report-name="<?= htmlspecialchars(displayName($file['name'])) ?>" title="Report copyright violation" aria-label="Report copyright violation">🚩 Report</span>
+                        <span class="report-link" data-report-path="<?= htmlspecialchars($file['path']) ?>" data-report-name="<?= htmlspecialchars(displayName($file['name'])) ?>" title="Report copyright violation" aria-label="Report copyright violation">🚩<span class="report-link-text"> Report</span></span>
                     </a>
                 <?php endforeach; ?>
             <?php endif; ?>
