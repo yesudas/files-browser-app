@@ -24,6 +24,8 @@ A lightweight, SEO-friendly, mobile-first PHP file browser built to serve free C
 - 🖥️ **Embed Mode** — Append `&embed=1` to any URL to show only the file list (hides header, breadcrumb, footer) — useful for embedding in iframes
 - 🔎 **Search** — Full-text search across all files and folders powered by a pre-built JSON index (`search-index.json`); hyphen-aware so `Tamil-Bible` matches the query `tamil bible`
 - 🛡️ **Admin Panel** — Password-protected control panel (`a.php`) to create folders, upload files/folders, rename, and delete — all restricted to `data/`
+- 🚩 **Copyright Report** — Public "Report Copyright Violation" link on every file opens a modal (name, mobile/WhatsApp, optional email, ownership question, details); submissions are saved server-side and reviewed from the admin panel, which can hide the reported file or delete the report
+- 🗺️ **Sitemap Generator** — Admin-triggered script (`sitemap.php`) that recursively scans `data/` and writes a master `sitemap.xml` plus per-folder sitemap files (auto-split past 10,000 URLs each)
 
 ---
 
@@ -31,10 +33,14 @@ A lightweight, SEO-friendly, mobile-first PHP file browser built to serve free C
 
 ```
 files-browser-app/
-├── index.php           # Main file browser + search results
+├── index.php           # Main file browser + search results + copyright-report modal
 ├── download.php        # Secure file download handler
-├── a.php               # Admin control panel (password protected)
+├── report.php          # Receives copyright-report submissions (writes into reports/)
+├── a.php               # Admin control panel (password protected) — also lists copyright reports
 ├── i.php               # Search index builder (admin only)
+├── sitemap.php         # Sitemap generator (admin only) — writes sitemap.xml + sitemap-*.xml
+├── sitemap.xml          # Generated master sitemap index (created by sitemap.php)
+├── sitemap-*.xml        # Generated per-folder sitemap files (created by sitemap.php)
 ├── search-index.json   # Generated search index (created by i.php)
 ├── counter.php         # Visitor counter (bot-aware)
 ├── bot.php             # Bot honeypot logger
@@ -47,6 +53,7 @@ files-browser-app/
 │   ├── icon-512.png    # PWA icon (512×512)
 │   ├── icon.svg        # Source SVG icon
 │   └── generate-icons.php  # One-time icon generator (PHP GD)
+├── reports/            # Generated copyright-report JSON files (created by report.php, not web-accessible)
 └── data/               # ← Put your folders and files here
     ├── Tamil-Christian-Books/
     ├── Hindi-Christian-Books/
@@ -77,6 +84,7 @@ Then open **http://localhost:3000** in your browser.
    ```bash
    chmod 644 counter.txt bot.log
    ```
+5. Make sure the web server can create the `reports/` directory (used by `report.php`) and write `sitemap.xml` / `sitemap-*.xml` in the site root (used by `sitemap.php`)
 
 ---
 
@@ -114,6 +122,8 @@ Access the admin panel at `/a.php`. Login with the configured credentials.
 - Upload an entire folder tree (via browser folder picker)
 - Rename files and folders
 - Delete files and folders (with confirmation)
+- Review copyright reports, hide the reported file, or delete the report (`a.php?view=reports`)
+- Rebuild the search index (`i.php`) and regenerate the sitemap (`sitemap.php`)
 
 **Security:**
 - bcrypt password hashing (cost 12)
@@ -139,6 +149,37 @@ Append `?embed=1` or `&embed=1` to any URL to render only the file list — no h
 https://same-website.com/?embed=1
 https://same-website.com/?path=Tamil-Christian-Books&embed=1
 ```
+
+---
+
+## 🚩 Copyright Reports
+
+Every file row on the public site has a **🚩 Report** link. Clicking it opens a modal asking for:
+
+- Your Name (required)
+- Your Mobile/WhatsApp (required)
+- Your Email (optional)
+- Whether you own the book/material (Yes/No, required)
+- More details (required only if "No")
+
+Submitting posts to `report.php`, which validates the input server-side and saves each report as its own JSON file under `reports/` (blocked from direct web access by `.htaccess`, and excluded from git via `.gitignore`).
+
+**Reviewing reports:** log in to `a.php` → click **🚩 Copyright Reports**. Each report shows the reporter's details and one of two actions:
+- **🙈 Hide the Reported File** — renames the file with a `HIDE - ` prefix, which removes it from the public listing (see [Hiding Folders / Files](#-hiding-folders--files) below). Disabled automatically once the file is already hidden or no longer exists.
+- **🗑️ Delete Report** — permanently removes the report.
+
+---
+
+## 🗺️ Sitemap Generator
+
+`sitemap.php` (admin only, same login as `a.php`/`i.php`) recursively scans `data/` and writes:
+
+- One or more `sitemap-<folder-slug>-<n>.xml` files per top-level folder under `data/` (loose files directly in `data/` are grouped as `sitemap-root-*.xml`). A folder with more than **10,000** files is automatically split across multiple numbered sitemap files.
+- A master `sitemap.xml` (sitemap index) that lists every generated sitemap file.
+
+Each `<url>` entry points at the file's `download.php` link with `<changefreq>yearly</changefreq>`. Hidden files/folders (`HIDE` prefix) and system files are excluded, matching the public site's visibility rules.
+
+**Run it:** log in to `a.php` → click **🗺️ Generate Sitemap** → **Build/Rebuild Sitemap**. Re-run any time files are added, renamed, or deleted. Submit `https://yourdomain.com/sitemap.xml` to Google Search Console / Bing Webmaster Tools.
 
 ---
 

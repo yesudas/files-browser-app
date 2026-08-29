@@ -548,6 +548,22 @@ if (($_GET['view'] ?? '') === 'reports') {
         }
     }
     usort($reports, fn($a, $b) => strcmp($b['timestamp'] ?? '', $a['timestamp'] ?? ''));
+
+    // Determine whether the reported file is currently visible, already hidden
+    // (renamed with the "HIDE - " prefix), or no longer exists at all.
+    function reportedFileStatus(string $relPath): string {
+        if ($relPath === '') return 'missing';
+        $full = resolveDataPath($relPath);
+        if ($full && is_file($full)) {
+            return (stripos(basename($full), 'HIDE') === 0) ? 'hidden' : 'visible';
+        }
+        $dir       = dirname($relPath);
+        $base      = basename($relPath);
+        $hiddenRel = ($dir === '.' || $dir === '') ? ('HIDE - ' . $base) : ($dir . '/HIDE - ' . $base);
+        $hiddenFull = resolveDataPath($hiddenRel);
+        if ($hiddenFull && is_file($hiddenFull)) return 'hidden';
+        return 'missing';
+    }
     ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -590,6 +606,9 @@ if (($_GET['view'] ?? '') === 'reports') {
         .report-owns { display: inline-block; margin-top: 4px; padding: 2px 8px; border-radius: 10px; font-size: .72rem; font-weight: 700; }
         .report-owns.yes { background: #eafaf1; color: #1e8449; }
         .report-owns.no  { background: #fdf2f2; color: #c0392b; }
+        .report-status { display: inline-block; margin-top: 4px; margin-left: 6px; padding: 2px 8px; border-radius: 10px; font-size: .72rem; font-weight: 700; }
+        .report-status.hidden  { background: #eef2f5; color: #566573; }
+        .report-status.missing { background: #fdf2f2; color: #c0392b; }
         .report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px 16px; margin-top: 10px; font-size: .85rem; }
         .report-grid dt { font-weight: 600; color: #2c3e50; }
         .report-grid dd { color: #566573; word-break: break-word; }
@@ -605,6 +624,7 @@ if (($_GET['view'] ?? '') === 'reports') {
             border-radius: 6px; font-size: .78rem; font-weight: 600; cursor: pointer;
         }
         .btn-hide-sm:hover { background: #3e4a56; }
+        .btn-hide-sm:disabled { background: #b7c0c8; cursor: not-allowed; }
         .empty-state { text-align: center; padding: 48px 20px; color: #7f8c8d; font-size: .95rem; }
     </style>
 </head>
@@ -634,7 +654,9 @@ if (($_GET['view'] ?? '') === 'reports') {
             No copyright reports have been submitted yet.
         </div>
     <?php else: ?>
-        <?php foreach ($reports as $r): ?>
+        <?php foreach ($reports as $r):
+            $fileStatus = reportedFileStatus($r['file_path'] ?? '');
+        ?>
             <div class="report-card">
                 <div class="report-card-top">
                     <div>
@@ -643,6 +665,11 @@ if (($_GET['view'] ?? '') === 'reports') {
                         <span class="report-owns <?= ($r['owns'] ?? '') === 'yes' ? 'yes' : 'no' ?>">
                             <?= ($r['owns'] ?? '') === 'yes' ? '✅ Claims ownership' : '⚠️ Does not own' ?>
                         </span>
+                        <?php if ($fileStatus === 'hidden'): ?>
+                            <span class="report-status hidden">🙈 Already Hidden</span>
+                        <?php elseif ($fileStatus === 'missing'): ?>
+                            <span class="report-status missing">❌ File No Longer Exists</span>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <dl class="report-grid">
@@ -661,7 +688,9 @@ if (($_GET['view'] ?? '') === 'reports') {
                             <input type="hidden" name="action" value="hide_report_file">
                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf) ?>">
                             <input type="hidden" name="file_path" value="<?= htmlspecialchars($r['file_path']) ?>">
-                            <button type="submit" class="btn-hide-sm">🙈 Hide the Reported File</button>
+                            <button type="submit" class="btn-hide-sm" <?= $fileStatus !== 'visible' ? 'disabled' : '' ?>>
+                                <?= $fileStatus === 'hidden' ? '🙈 Already Hidden' : '🙈 Hide the Reported File' ?>
+                            </button>
                         </form>
                     <?php endif; ?>
                     <form method="POST" action="a.php?view=reports"
@@ -973,6 +1002,7 @@ foreach ((glob(__DIR__ . '/reports/*.json') ?: []) as $rf) { $reportCount++; }
     <?php endif; ?>
     <a class="btn btn-secondary" href="index.php<?= $currentPath !== '' ? '?path=' . rawurlencode($currentPath) : '' ?>" target="_blank">👁️ View Public</a>
     <a class="btn btn-secondary" href="i.php" title="Rebuild the search index after adding or removing files">⚙️ Rebuild Search Index</a>
+    <a class="btn btn-secondary" href="sitemap.php" title="Regenerate sitemap.xml after adding or removing files">🗺️ Generate Sitemap</a>
     <a class="btn btn-secondary" href="a.php?view=reports">🚩 Copyright Reports<?= $reportCount > 0 ? " ($reportCount)" : '' ?></a>
 </div>
 
