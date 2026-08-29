@@ -24,6 +24,13 @@ RewriteEngine On
     RewriteRule ^data/(.*)$ - [F,L]
 </IfModule>
 
+# ── Block direct access to the reports/ directory ─────────────────
+# (copyright report JSON files are only ever read server-side by a.php)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^reports/(.*)$ - [F,L]
+</IfModule>
+
 # ── PHP settings for uploads ──────────────────────────────────────
 <IfModule mod_php.c>
     php_value upload_max_filesize  512M
