@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php -l /Users/yesudas/WOG/github-projects/files-browser-app/index.php)"
+    ]
+  }
+}

@@ -12,7 +12,8 @@
 
 // ── Configuration ────────────────────────────────────────────────────────────
 define('ADMIN_USER',          'yesu');
-define('ADMIN_HASH',          'ADD-YOUR-BCRYPT-HASH-HERE'); // bcrypt hash of the password
+define('ADMIN_HASH',          '$2y$12$O7y44MHjrHsE4VLy6S3LF.vFs5/ppEpkEPHes5eVvFcp4lIDX/o4G'); // bcrypt hash of the password
+//define('ADMIN_HASH',          'ADD-YOUR-BCRYPT-HASH-HERE'); // bcrypt hash of the password
 define('BASE_DATA_DIR',       realpath(__DIR__ . '/data'));
 define('MAX_UPLOAD_BYTES',    512 * 1024 * 1024); // 512 MB per file
 define('MAX_LOGIN_ATTEMPTS',  5);
@@ -385,6 +386,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isLoggedIn()) {
         exit;
     }
 
+    // Recover a previously hidden file (remove the "HIDE - " prefix)
+    if ($action === 'recover_report_file') {
+        $filePath  = $_POST['file_path'] ?? '';
+        $dir       = dirname($filePath);
+        $base      = basename($filePath);
+        $hiddenRel = ($dir === '.' || $dir === '') ? ('HIDE - ' . $base) : ($dir . '/HIDE - ' . $base);
+        $hiddenFull = resolveDataPath($hiddenRel);
+
+        if (!$hiddenFull || !is_file($hiddenFull)) {
+            $msg = 'Hidden file not found.'; $msgType = 'error';
+        } else {
+            $targetFull = dirname($hiddenFull) . DIRECTORY_SEPARATOR . $base;
+            if (file_exists($targetFull)) {
+                $msg = "A file named \"$base\" already exists; cannot recover."; $msgType = 'error';
+            } elseif (rename($hiddenFull, $targetFull)) {
+                $msg = "\"$base\" has been restored to the public site."; $msgType = 'success';
+            } else {
+                $msg = 'Failed to recover file. Check server permissions.'; $msgType = 'error';
+            }
+        }
+        header('Location: a.php?view=reports');
+        exit;
+    }
+
     // Delete a copyright report
     if ($action === 'delete_report') {
         $reportsDir  = realpath(__DIR__ . '/reports');
@@ -625,6 +650,11 @@ if (($_GET['view'] ?? '') === 'reports') {
         }
         .btn-hide-sm:hover { background: #3e4a56; }
         .btn-hide-sm:disabled { background: #b7c0c8; cursor: not-allowed; }
+        .btn-recover-sm {
+            background: #1e8449; color: #fff; border: none; padding: 6px 14px;
+            border-radius: 6px; font-size: .78rem; font-weight: 600; cursor: pointer;
+        }
+        .btn-recover-sm:hover { background: #196f3d; }
         .empty-state { text-align: center; padding: 48px 20px; color: #7f8c8d; font-size: .95rem; }
     </style>
 </head>
@@ -682,15 +712,21 @@ if (($_GET['view'] ?? '') === 'reports') {
                     <div class="report-details"><?= nl2br(htmlspecialchars($r['details'])) ?></div>
                 <?php endif; ?>
                 <div class="report-actions">
-                    <?php if (!empty($r['file_path'])): ?>
+                    <?php if (!empty($r['file_path']) && $fileStatus === 'visible'): ?>
                         <form method="POST" action="a.php?view=reports"
                               onsubmit="return confirm('Hide this file from the public site? It will be renamed with a HIDE prefix.');">
                             <input type="hidden" name="action" value="hide_report_file">
                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf) ?>">
                             <input type="hidden" name="file_path" value="<?= htmlspecialchars($r['file_path']) ?>">
-                            <button type="submit" class="btn-hide-sm" <?= $fileStatus !== 'visible' ? 'disabled' : '' ?>>
-                                <?= $fileStatus === 'hidden' ? '🙈 Already Hidden' : '🙈 Hide the Reported File' ?>
-                            </button>
+                            <button type="submit" class="btn-hide-sm">🙈 Hide the Reported File</button>
+                        </form>
+                    <?php elseif (!empty($r['file_path']) && $fileStatus === 'hidden'): ?>
+                        <form method="POST" action="a.php?view=reports"
+                              onsubmit="return confirm('Restore this file to the public site? This removes the HIDE prefix.');">
+                            <input type="hidden" name="action" value="recover_report_file">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf) ?>">
+                            <input type="hidden" name="file_path" value="<?= htmlspecialchars($r['file_path']) ?>">
+                            <button type="submit" class="btn-recover-sm">♻️ Recover Back</button>
                         </form>
                     <?php endif; ?>
                     <form method="POST" action="a.php?view=reports"

@@ -299,33 +299,48 @@ $embedSuffix = $isEmbed ? '&embed=1' : '';
 
         <?php else: ?>
             <?php foreach ($searchResults as $res):
-                $resIsDir  = $res['t'] === 'd';
-                $resIcon   = $resIsDir ? '📁' : getFileIcon($res['n']);
-                $resName   = displayName(pathinfo($res['n'], $resIsDir ? PATHINFO_BASENAME : PATHINFO_FILENAME));
-                $resExt    = !$resIsDir ? pathinfo($res['n'], PATHINFO_EXTENSION) : '';
-                $resHref   = $resIsDir
-                    ? 'index.php?path=' . encodeFileParam($res['p']) . $embedSuffix
-                    : 'download.php?file=' . encodeFileParam($res['p']);
-                $resParent = dirname($res['p']);
-                $resParent = ($resParent === '.' || $resParent === '') ? '' : $resParent;
-                $resCrumbs = $resParent !== '' ? array_map('displayName', explode('/', $resParent)) : [];
+                $resIsDir   = $res['t'] === 'd';
+                $resIcon    = $resIsDir ? '📁' : getFileIcon($res['n']);
+                $resName    = displayName(pathinfo($res['n'], $resIsDir ? PATHINFO_BASENAME : PATHINFO_FILENAME));
+                $resExt     = !$resIsDir ? pathinfo($res['n'], PATHINFO_EXTENSION) : '';
+                $resDirHref = 'index.php?path=' . encodeFileParam($res['p']) . $embedSuffix;
+                $resDlHref  = 'download.php?file=' . encodeFileParam($res['p']);
+                $resParent  = dirname($res['p']);
+                $resParent  = ($resParent === '.' || $resParent === '') ? '' : $resParent;
+                $resCrumbs  = $resParent !== '' ? array_map('displayName', explode('/', $resParent)) : [];
             ?>
-            <a class="file-item" href="<?= $resHref ?>"
-               title="<?= htmlspecialchars($res['n']) ?>">
-                <span class="icon"><?= $resIcon ?></span>
-                <span class="name">
-                    <?= htmlspecialchars($resName) ?><?php if ($resExt): ?><span style="color:var(--muted);font-size:.8em">.<?= htmlspecialchars($resExt) ?></span><?php endif; ?>
-                    <?php if (!empty($resCrumbs)): ?>
-                        <span class="result-path">📂 <?= htmlspecialchars(implode(' › ', $resCrumbs)) ?></span>
-                    <?php endif; ?>
-                </span>
-                <?php if (!$resIsDir && isset($res['s'])): ?>
-                    <span class="meta"><?= humanFileSize((int)$res['s']) ?></span>
-                <?php endif; ?>
-                <?php if (!$resIsDir): ?>
-                    <span class="report-link" data-report-path="<?= htmlspecialchars($res['p']) ?>" data-report-name="<?= htmlspecialchars(displayName($res['n'])) ?>" title="Report copyright violation" aria-label="Report copyright violation">🚩<span class="report-link-text"> Report</span></span>
-                <?php endif; ?>
-            </a>
+            <?php if ($resIsDir): ?>
+                <a class="file-item" href="<?= $resDirHref ?>" title="<?= htmlspecialchars($res['n']) ?>">
+                    <span class="icon"><?= $resIcon ?></span>
+                    <span class="name">
+                        <?= htmlspecialchars($resName) ?>
+                        <?php if (!empty($resCrumbs)): ?>
+                            <span class="result-path">📂 <?= htmlspecialchars(implode(' › ', $resCrumbs)) ?></span>
+                        <?php endif; ?>
+                    </span>
+                </a>
+            <?php else: ?>
+                <div class="file-item file-item-detailed" title="<?= htmlspecialchars($res['n']) ?>">
+                    <span class="icon"><?= $resIcon ?></span>
+                    <div class="file-item-content">
+                        <div class="file-item-top">
+                            <span class="name">
+                                <?= htmlspecialchars($resName) ?><?php if ($resExt): ?><span style="color:var(--muted);font-size:.8em">.<?= htmlspecialchars($resExt) ?></span><?php endif; ?>
+                                <?php if (!empty($resCrumbs)): ?>
+                                    <span class="result-path">📂 <?= htmlspecialchars(implode(' › ', $resCrumbs)) ?></span>
+                                <?php endif; ?>
+                            </span>
+                            <?php if (isset($res['s'])): ?>
+                                <span class="meta"><?= humanFileSize((int)$res['s']) ?></span>
+                            <?php endif; ?>
+                        </div>
+                        <div class="file-item-links">
+                            <a class="file-action-link download-link" href="<?= $resDlHref ?>">⬇️ Click here to Download</a>
+                            <span class="file-action-link report-link" data-report-path="<?= htmlspecialchars($res['p']) ?>" data-report-name="<?= htmlspecialchars(displayName($res['n'])) ?>">🚩 Report Copyright Issue</span>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
             <?php endforeach; ?>
         <?php endif; ?>
     </div>
@@ -384,14 +399,19 @@ $embedSuffix = $isEmbed ? '&embed=1' : '';
             <?php if (!empty($files)): ?>
                 <div class="section-label">Files</div>
                 <?php foreach ($files as $file): ?>
-                    <a class="file-item"
-                       href="download.php?file=<?= encodeFileParam($file['path']) ?>"
-                       title="<?= htmlspecialchars(displayName($file['name'])) ?>">
+                    <div class="file-item file-item-detailed" title="<?= htmlspecialchars(displayName($file['name'])) ?>">
                         <span class="icon"><?= getFileIcon($file['name']) ?></span>
-                        <span class="name"><?= htmlspecialchars(displayName(pathinfo($file['name'], PATHINFO_FILENAME))) ?><span style="color:var(--muted);font-size:.8em">.<?= htmlspecialchars(pathinfo($file['name'], PATHINFO_EXTENSION)) ?></span></span>
-                        <span class="meta"><?= $file['size'] ?></span>
-                        <span class="report-link" data-report-path="<?= htmlspecialchars($file['path']) ?>" data-report-name="<?= htmlspecialchars(displayName($file['name'])) ?>" title="Report copyright violation" aria-label="Report copyright violation">🚩<span class="report-link-text"> Report</span></span>
-                    </a>
+                        <div class="file-item-content">
+                            <div class="file-item-top">
+                                <span class="name"><?= htmlspecialchars(displayName(pathinfo($file['name'], PATHINFO_FILENAME))) ?><span style="color:var(--muted);font-size:.8em">.<?= htmlspecialchars(pathinfo($file['name'], PATHINFO_EXTENSION)) ?></span></span>
+                                <span class="meta"><?= $file['size'] ?></span>
+                            </div>
+                            <div class="file-item-links">
+                                <a class="file-action-link download-link" href="download.php?file=<?= encodeFileParam($file['path']) ?>">⬇️ Click here to Download</a>
+                                <span class="file-action-link report-link" data-report-path="<?= htmlspecialchars($file['path']) ?>" data-report-name="<?= htmlspecialchars(displayName($file['name'])) ?>">🚩 Report Copyright Issue</span>
+                            </div>
+                        </div>
+                    </div>
                 <?php endforeach; ?>
             <?php endif; ?>
 
@@ -414,45 +434,61 @@ $embedSuffix = $isEmbed ? '&embed=1' : '';
     <div class="report-modal">
         <button type="button" class="report-modal-close" id="report-modal-close" aria-label="Close">✕</button>
         <h3 id="report-modal-title">🚩 Report Copyright Violation</h3>
+
+        <div class="report-modal-warning">
+            ⚠️ By submitting this form, the file will be <strong>DELETED</strong> from our server.
+            Please be careful and do not report unwantedly.
+        </div>
+
         <p class="report-modal-file" id="report-modal-file"></p>
 
         <form id="report-form" novalidate>
             <input type="hidden" name="file_path" id="report-file-path" value="">
 
-            <div class="report-form-group">
-                <label for="report-name">Your Name <span class="req">*</span></label>
-                <input type="text" id="report-name" name="name" required maxlength="150">
-            </div>
+            <div id="report-form-fields">
+                <div class="report-form-group">
+                    <label for="report-name">Your Name <span class="req">*</span></label>
+                    <input type="text" id="report-name" name="name" required maxlength="150">
+                </div>
 
-            <div class="report-form-group">
-                <label for="report-mobile">Your Mobile / WhatsApp <span class="req">*</span></label>
-                <input type="tel" id="report-mobile" name="mobile" required maxlength="20">
-            </div>
+                <div class="report-form-group">
+                    <label for="report-mobile">Your Mobile / WhatsApp <span class="req">*</span></label>
+                    <input type="tel" id="report-mobile" name="mobile" required maxlength="20">
+                </div>
 
-            <div class="report-form-group">
-                <label for="report-email">Your Email <span class="opt">(optional)</span></label>
-                <input type="email" id="report-email" name="email" maxlength="150">
-            </div>
+                <div class="report-form-group">
+                    <label for="report-email">Your Email <span class="opt">(optional)</span></label>
+                    <input type="email" id="report-email" name="email" maxlength="150">
+                </div>
 
-            <div class="report-form-group">
-                <label>Do you own this book/material? <span class="req">*</span></label>
-                <div class="report-radio-row">
-                    <label class="report-radio"><input type="radio" name="owns" value="yes" required> Yes</label>
-                    <label class="report-radio"><input type="radio" name="owns" value="no" required> No</label>
+                <div class="report-form-group">
+                    <label>Do you own this book/material? <span class="req">*</span></label>
+                    <div class="report-radio-row">
+                        <label class="report-radio"><input type="radio" name="owns" value="yes" required> Yes</label>
+                        <label class="report-radio"><input type="radio" name="owns" value="no" required> No</label>
+                    </div>
+                </div>
+
+                <div class="report-form-group" id="report-details-group" style="display:none;">
+                    <label for="report-details">Share more details <span class="req">*</span></label>
+                    <textarea id="report-details" name="details" rows="4" maxlength="3000" placeholder="Please describe the copyright issue…"></textarea>
+                </div>
+
+                <div class="report-modal-actions">
+                    <button type="button" class="btn-report-cancel" id="report-modal-cancel">Cancel</button>
+                    <button type="submit" class="btn-report-submit" id="report-modal-submit">Submit</button>
                 </div>
             </div>
 
-            <div class="report-form-group" id="report-details-group" style="display:none;">
-                <label for="report-details">Share more details <span class="req">*</span></label>
-                <textarea id="report-details" name="details" rows="4" maxlength="3000" placeholder="Please describe the copyright issue…"></textarea>
+            <div id="report-confirm-step" style="display:none;">
+                <p class="report-confirm-text">Do you want to DELETE this book from this server?</p>
+                <div class="report-modal-actions">
+                    <button type="button" class="btn-report-confirm-cancel" id="report-confirm-cancel">Cancel</button>
+                    <button type="button" class="btn-report-cancel" id="report-confirm-yes">Yes</button>
+                </div>
             </div>
 
             <div class="report-modal-msg" id="report-modal-msg" aria-live="polite"></div>
-
-            <div class="report-modal-actions">
-                <button type="button" class="btn-report-cancel" id="report-modal-cancel">Cancel</button>
-                <button type="submit" class="btn-report-submit" id="report-modal-submit">Submit</button>
-            </div>
         </form>
     </div>
 </div>
@@ -609,6 +645,20 @@ function copyPageLink(btn) {
     const submitBtn       = document.getElementById('report-modal-submit');
     const detailsGroup    = document.getElementById('report-details-group');
     const detailsInput    = document.getElementById('report-details');
+    const formFieldsStep  = document.getElementById('report-form-fields');
+    const confirmStep     = document.getElementById('report-confirm-step');
+    const confirmYesBtn   = document.getElementById('report-confirm-yes');
+    const confirmCancelBtn = document.getElementById('report-confirm-cancel');
+
+    function showFormStep() {
+        formFieldsStep.style.display = 'block';
+        confirmStep.style.display = 'none';
+    }
+
+    function showConfirmStep() {
+        formFieldsStep.style.display = 'none';
+        confirmStep.style.display = 'block';
+    }
 
     function openReportModal(path, name) {
         form.reset();
@@ -618,6 +668,7 @@ function copyPageLink(btn) {
         msgBox.className = 'report-modal-msg';
         filePathInput.value = path;
         fileLabel.textContent = '📄 ' + name;
+        showFormStep();
         overlay.classList.add('open');
         setTimeout(() => document.getElementById('report-name').focus(), 50);
     }
@@ -651,16 +702,26 @@ function copyPageLink(btn) {
         });
     });
 
+    // Step 1: form passes native validation → ask for explicit confirmation
+    // before anything is actually sent (submitting deletes the file).
     form.addEventListener('submit', function (e) {
         e.preventDefault();
         msgBox.textContent = '';
         msgBox.className = 'report-modal-msg';
+        showConfirmStep();
+    });
 
+    confirmCancelBtn.addEventListener('click', function () {
+        closeReportModal();
+    });
+
+    // Step 2: user confirmed — actually submit the report.
+    confirmYesBtn.addEventListener('click', function () {
         // Snapshot the form data first — disabled fields are excluded from FormData.
         const formData = new FormData(form);
         const formFields = form.querySelectorAll('input, textarea, button');
         formFields.forEach(function (el) { el.disabled = true; });
-        submitBtn.textContent = 'Submitting…';
+        confirmYesBtn.textContent = 'Submitting…';
 
         fetch('report.php', {
             method: 'POST',
@@ -674,15 +735,18 @@ function copyPageLink(btn) {
                     form.reset();
                     detailsGroup.style.display = 'none';
                     setTimeout(closeReportModal, 2200);
+                } else {
+                    showFormStep();
                 }
             })
             .catch(function () {
                 msgBox.textContent = 'Network error. Please try again.';
                 msgBox.className = 'report-modal-msg error';
+                showFormStep();
             })
             .finally(function () {
                 formFields.forEach(function (el) { el.disabled = false; });
-                submitBtn.textContent = 'Submit';
+                confirmYesBtn.textContent = 'Yes';
             });
     });
 })();
