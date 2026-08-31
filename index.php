@@ -59,24 +59,41 @@ function displayName($name) {
     return str_replace('-', ' ', $name);
 }
 
-// Helper: get file icon based on extension
+// Helper: get file icon based on extension.
+// Uses the PNG icon set in icons/ when one exists for the extension,
+// falling back to an emoji for formats without a dedicated icon file.
 function getFileIcon($filename) {
     $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+
+    // Extensions with a matching file in icons/ (icons/<file>.png)
+    $iconFiles = [
+        'pdf'  => 'pdf',
+        'doc'  => 'doc',
+        'docx' => 'docx',
+        'ppt'  => 'ppt',
+        'pptx' => 'pptx',
+        'xls'  => 'xls',
+        'xlsx' => 'xlsx',
+        'csv'  => 'csv',
+        'txt'  => 'txt',
+        'jpg'  => 'jpg',
+        'jpeg' => 'jpg',
+        'png'  => 'png',
+        'mp3'  => 'mp3',
+        'mp4'  => 'mp4',
+        'zip'  => 'zip',
+    ];
+    if (isset($iconFiles[$ext])) {
+        $file = $iconFiles[$ext];
+        return '<img class="file-icon-img" src="icons/' . $file . '.png" alt="' . htmlspecialchars($ext) . ' file">';
+    }
+
+    // Formats without a dedicated icon file fall back to an emoji
     $icons = [
-        'pdf'  => '📄',
         'epub' => '📗',
-        'mobi' => '📘',
-        'doc'  => '📝',
-        'docx' => '📝',
-        'txt'  => '📃',
-        'mp3'  => '🎵',
-        'mp4'  => '🎬',
+        'mobi' => '📙',
         'apk'  => '📱',
-        'zip'  => '🗜️',
         'rar'  => '🗜️',
-        'jpg'  => '🖼️',
-        'jpeg' => '🖼️',
-        'png'  => '🖼️',
     ];
     return isset($icons[$ext]) ? $icons[$ext] : '📄';
 }
@@ -300,7 +317,7 @@ $embedSuffix = $isEmbed ? '&embed=1' : '';
         <?php else: ?>
             <?php foreach ($searchResults as $res):
                 $resIsDir   = $res['t'] === 'd';
-                $resIcon    = $resIsDir ? '📁' : getFileIcon($res['n']);
+                $resIcon    = $resIsDir ? '<img class="file-icon-img" src="icons/folder.png" alt="folder">' : getFileIcon($res['n']);
                 $resName    = displayName(pathinfo($res['n'], $resIsDir ? PATHINFO_BASENAME : PATHINFO_FILENAME));
                 $resExt     = !$resIsDir ? pathinfo($res['n'], PATHINFO_EXTENSION) : '';
                 $resDirHref = 'index.php?path=' . encodeFileParam($res['p']) . $embedSuffix;
@@ -330,13 +347,13 @@ $embedSuffix = $isEmbed ? '&embed=1' : '';
                                     <span class="result-path">📂 <?= htmlspecialchars(implode(' › ', $resCrumbs)) ?></span>
                                 <?php endif; ?>
                             </span>
+                        </div>
+                        <div class="file-item-links">
+                            <a class="file-action-link download-link" href="<?= $resDlHref ?>">⬇️ Download</a>
                             <?php if (isset($res['s'])): ?>
                                 <span class="meta"><?= humanFileSize((int)$res['s']) ?></span>
                             <?php endif; ?>
-                        </div>
-                        <div class="file-item-links">
-                            <a class="file-action-link download-link" href="<?= $resDlHref ?>">⬇️ Click here to Download</a>
-                            <span class="file-action-link report-link" data-report-path="<?= htmlspecialchars($res['p']) ?>" data-report-name="<?= htmlspecialchars(displayName($res['n'])) ?>">🚩 Report Copyright Issue</span>
+                            <span class="file-action-link report-link" data-report-path="<?= htmlspecialchars($res['p']) ?>" data-report-name="<?= htmlspecialchars(displayName($res['n'])) ?>">Report a copyright issue</span>
                         </div>
                     </div>
                 </div>
@@ -390,7 +407,7 @@ $embedSuffix = $isEmbed ? '&embed=1' : '';
                     <a class="file-item"
                        href="index.php?path=<?= encodeFileParam($dir['path']) . $embedSuffix ?>"
                        title="<?= htmlspecialchars(displayName($dir['name'])) ?>">
-                        <span class="icon">📁</span>
+                        <span class="icon"><img class="file-icon-img" src="icons/folder.png" alt="folder"></span>
                         <span class="name"><?= htmlspecialchars(displayName($dir['name'])) ?></span>
                     </a>
                 <?php endforeach; ?>
@@ -404,11 +421,11 @@ $embedSuffix = $isEmbed ? '&embed=1' : '';
                         <div class="file-item-content">
                             <div class="file-item-top">
                                 <span class="name"><?= htmlspecialchars(displayName(pathinfo($file['name'], PATHINFO_FILENAME))) ?><span style="color:var(--muted);font-size:.8em">.<?= htmlspecialchars(pathinfo($file['name'], PATHINFO_EXTENSION)) ?></span></span>
-                                <span class="meta"><?= $file['size'] ?></span>
                             </div>
                             <div class="file-item-links">
-                                <a class="file-action-link download-link" href="download.php?file=<?= encodeFileParam($file['path']) ?>">⬇️ Click here to Download</a>
-                                <span class="file-action-link report-link" data-report-path="<?= htmlspecialchars($file['path']) ?>" data-report-name="<?= htmlspecialchars(displayName($file['name'])) ?>">🚩 Report Copyright Issue</span>
+                                <a class="file-action-link download-link" href="download.php?file=<?= encodeFileParam($file['path']) ?>">⬇️ Download</a>
+                                <span class="meta"><?= $file['size'] ?></span>
+                                <span class="file-action-link report-link" data-report-path="<?= htmlspecialchars($file['path']) ?>" data-report-name="<?= htmlspecialchars(displayName($file['name'])) ?>">Report a copyright issue</span>
                             </div>
                         </div>
                     </div>
@@ -475,8 +492,8 @@ $embedSuffix = $isEmbed ? '&embed=1' : '';
                 </div>
 
                 <div class="report-modal-actions">
-                    <button type="button" class="btn-report-cancel" id="report-modal-cancel">Cancel</button>
-                    <button type="submit" class="btn-report-submit" id="report-modal-submit">Submit</button>
+                    <button type="button" class="btn-report-confirm-cancel" id="report-modal-cancel">Cancel</button>
+                    <button type="submit" class="btn-report-cancel" id="report-modal-submit">Submit</button>
                 </div>
             </div>
 
@@ -706,6 +723,14 @@ function copyPageLink(btn) {
     // before anything is actually sent (submitting deletes the file).
     form.addEventListener('submit', function (e) {
         e.preventDefault();
+
+        // The form carries novalidate so this handler has full control over
+        // when validation runs — reportValidity() must be called explicitly,
+        // otherwise required fields would never block the confirm step.
+        if (!form.reportValidity()) {
+            return;
+        }
+
         msgBox.textContent = '';
         msgBox.className = 'report-modal-msg';
         showConfirmStep();

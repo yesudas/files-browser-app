@@ -12,8 +12,7 @@
 
 // ── Configuration ────────────────────────────────────────────────────────────
 define('ADMIN_USER',          'yesu');
-define('ADMIN_HASH',          '$2y$12$O7y44MHjrHsE4VLy6S3LF.vFs5/ppEpkEPHes5eVvFcp4lIDX/o4G'); // bcrypt hash of the password
-//define('ADMIN_HASH',          'ADD-YOUR-BCRYPT-HASH-HERE'); // bcrypt hash of the password
+define('ADMIN_HASH',          'ADD-YOUR-BCRYPT-HASH-HERE'); // bcrypt hash of the password
 define('BASE_DATA_DIR',       realpath(__DIR__ . '/data'));
 define('MAX_UPLOAD_BYTES',    512 * 1024 * 1024); // 512 MB per file
 define('MAX_LOGIN_ATTEMPTS',  5);
