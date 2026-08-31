@@ -5,3 +5,5 @@ counter.txt
 .sync.ffs_db
 **/.DS_Store
 bot.log
+/gtag.php
+/admin-credentials.php

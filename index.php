@@ -206,6 +206,9 @@ $embedSuffix = $isEmbed ? '&embed=1' : '';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <?php include __DIR__ . '/gtag.php'; ?>
+
     <title><?= $metaTitle ?></title>
     <meta name="description" content="<?= htmlspecialchars($metaDesc) ?>">
     <meta name="robots" content="index, follow">

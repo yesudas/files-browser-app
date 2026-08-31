@@ -5,14 +5,16 @@
  * Features: create folders, upload files/folders, rename, delete
  * All operations are restricted to the data/ directory.
  *
- * To change the password, regenerate the hash via CLI:
- *   php -r "echo password_hash('newpassword', PASSWORD_BCRYPT, ['cost'=>12]);"
- * Then paste the result into ADMIN_HASH below.
+ * Login credentials (ADMIN_USER / ADMIN_HASH) live in admin-credentials.php,
+ * which is gitignored — see that file for how to change the password.
  */
 
+require_once __DIR__ . '/admin-credentials.php';
+
 // ── Configuration ────────────────────────────────────────────────────────────
-define('ADMIN_USER',          'yesu');
-define('ADMIN_HASH',          'ADD-YOUR-BCRYPT-HASH-HERE'); // bcrypt hash of the password
+//define('ADMIN_USER', 'USER_NAME_HERE');
+//define('ADMIN_HASH', 'YOUR_ADMIN_PASSWORD_HERE'); // bcrypt hash of the password
+
 define('BASE_DATA_DIR',       realpath(__DIR__ . '/data'));
 define('MAX_UPLOAD_BYTES',    512 * 1024 * 1024); // 512 MB per file
 define('MAX_LOGIN_ATTEMPTS',  5);
