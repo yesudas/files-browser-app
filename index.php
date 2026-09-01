@@ -244,23 +244,17 @@ $embedSuffix = $isEmbed ? '&embed=1' : '';
 <body>
 
 <?php if (!$isEmbed): ?>
-<!-- PWA Install Banner -->
-<div id="pwa-banner" class="pwa-banner" style="display:none;" role="banner" aria-live="polite">
-    <div class="pwa-banner-inner">
-        <img src="icons/icon-192.png" alt="ChristianPDF icon" class="pwa-banner-icon">
-        <div class="pwa-banner-text">
-            <strong>Install as App</strong>
-            <span>Add to your home screen for quick access — works offline too!</span>
-        </div>
-        <button id="pwa-install-btn" class="pwa-btn-install" aria-label="Install app">Install</button>
-        <button id="pwa-dismiss-btn" class="pwa-btn-dismiss" aria-label="Dismiss install banner">✕</button>
-    </div>
-</div>
-
 <header>
     <div class="header-inner">
-        <h1>✝️ <?= htmlspecialchars($pageTitle) ?></h1>
-        <p class="tagline">Browse &amp; download free Christian books, PDFs, audio Bibles and more in multiple languages like Tamil, Hindi, Kannada, English, Hebrew, Greek, etc</p>
+        <div class="header-title">
+            <h1>✝️ <?= htmlspecialchars($pageTitle) ?></h1>
+            <p class="tagline">Free Christian books, PDFs & audio Bibles in many languages</p>
+        </div>
+        <!-- PWA Install button (hidden until beforeinstallprompt fires) -->
+        <button id="pwa-install-btn" class="pwa-install pwa-install--amber" type="button" aria-label="Install app">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14"/></svg>
+            Install
+        </button>
     </div>
 </header>
 
@@ -590,28 +584,29 @@ function copyPageLink(btn) {
     const isInStandaloneMode = ('standalone' in window.navigator) && window.navigator.standalone;
 
     // ── Install Prompt Elements ──
-    const banner     = document.getElementById('pwa-banner');
     const installBtn = document.getElementById('pwa-install-btn');
-    const dismissBtn = document.getElementById('pwa-dismiss-btn');
     const footerLink = document.getElementById('pwa-footer-install');
-    const bannerText = document.querySelector('.pwa-banner-text span');
+    if (!installBtn) return;
 
+    let bannerShown = false;
     function showBanner() {
-        banner.style.display = 'block';
+        if (bannerShown) return;
+        bannerShown = true;
+        installBtn.classList.add('is-visible'); // already in the header flow → no layout shift
         if (footerLink) footerLink.style.display = 'inline-block';
     }
 
     function hideBanner() {
-        banner.style.display = 'none';
+        bannerShown = false;
+        installBtn.classList.remove('is-visible');
     }
 
     // ── Expose showBanner for early-captured event ──
     window.__pwaShowBanner = showBanner;
 
-    // ── iOS: show manual install instructions ──
+    // ── iOS: no beforeinstallprompt, so the button shows a manual hint ──
     if (isIos && !isInStandaloneMode) {
-        if (bannerText) bannerText.textContent = 'Tap the Share button (⬆) then "Add to Home Screen" to install.';
-        installBtn.style.display = 'none'; // hide the install button, can't trigger prompt on iOS
+        installBtn.dataset.ios = '1';
         showBanner();
     }
 
@@ -629,6 +624,10 @@ function copyPageLink(btn) {
 
     function triggerInstall(e) {
         if (e) e.preventDefault();
+        if (installBtn.dataset.ios === '1') {
+            alert('To install: tap the Share button (⬆), then "Add to Home Screen".');
+            return;
+        }
         if (!window.__pwaInstallEvent) return;
         hideBanner();
         window.__pwaInstallEvent.prompt();
@@ -641,10 +640,6 @@ function copyPageLink(btn) {
 
     installBtn.addEventListener('click', triggerInstall);
     if (footerLink) footerLink.addEventListener('click', triggerInstall);
-
-    dismissBtn.addEventListener('click', () => {
-        hideBanner();
-    });
 
     window.addEventListener('appinstalled', () => {
         hideBanner();
