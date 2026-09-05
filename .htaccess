@@ -76,7 +76,92 @@ Header always set Content-Security-Policy: upgrade-insecure-requests
 # 1. Block known bad bots only (empty UA check removed — causes false positives)
 # RewriteCond %{HTTP_USER_AGENT} (curl|python-requests|wget|libwww-perl|MJ12bot|AhrefsBot|SemrushBot|GPTBot|ClaudeBot) [NC]
 # RewriteRule .* - [F,L]
- 
+
+# WordOfGod.in - AI Scraper Rate Limiting
+# Updated: 2026-01-31
+# Strategy: Allow all crawlers but limit them to 10 requests per minute
+
+# Rate limiting using mod_rewrite and environment variables
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Identify AI/LLM crawlers and set environment variable for stricter limiting
+    RewriteCond %{HTTP_USER_AGENT} (crawl|GPTBot|ChatGPT|Claude|ClaudeBot|anthropic|CCBot|Google-Extended|Omgilibot|Amazonbot|Bytespider|PerplexityBot|Applebot-Extended|Diffbot|ImagesiftBot|img2dataset|cohere-ai|FacebookBot) [NC]
+    RewriteRule .* - [E=AI_CRAWLER:1]
+</IfModule>
+
+# Rate limiting for AI crawlers (requires mod_ratelimit)
+# Limit to ~10 requests per minute = 166 bytes per second for average 1KB pages
+<IfModule mod_ratelimit.c>
+    <If "%{ENV:AI_CRAWLER} == '1'">
+        # Very slow rate for AI crawlers: 200 bytes/sec ≈ 12 requests/min for 1KB pages
+        SetOutputFilter RATE_LIMIT
+        SetEnv rate-limit 200
+    </If>
+
+    <Else>
+        # Normal rate for legitimate users: no limiting
+        # (or set a higher limit like 10000 bytes/sec if needed)
+    </Else>
+</IfModule>
+
+# Alternative: Use mod_qos for more precise per-IP rate limiting
+# Uncomment if mod_qos is available (better than mod_ratelimit)
+# <IfModule mod_qos.c>
+#     # Maximum 10 requests per minute per IP
+#     QS_SrvMaxConnPerIP 10
+#
+#     # Maximum concurrent connections
+#     QS_SrvMaxConn 100
+#
+#     # Request rate: 10 requests per 60 seconds per IP
+#     QS_LocRequestPerSecLimit 10 60
+# </IfModule>
+
+# Additional headers to inform crawlers about rate limits
+<IfModule mod_headers.c>
+    # Suggest crawl delay to well-behaved bots
+    Header set X-Crawl-Delay "6"
+
+    # Prevent AI training on your content (some crawlers respect this)
+    Header set X-Robots-Tag "noai, noimageai"
+
+    # For AI crawlers, set more aggressive delay hint
+    <If "%{ENV:AI_CRAWLER} == '1'">
+        Header set X-Crawl-Delay "30"
+        Header set Retry-After "30"
+    </If>
+</IfModule>
+
+# Connection limiting (alternative approach using mod_limitipconn)
+# Uncomment if available - limits concurrent connections per IP
+# <IfModule mod_limitipconn.c>
+#     # Maximum 3 concurrent connections per IP
+#     MaxConnPerIP 3
+#
+#     # Only apply to certain file types
+#     <Location />
+#         MaxConnPerIP 3
+#     </Location>
+# </IfModule>
+
+# Cache control for sitemap files (index + per-folder chunks)
+<IfModule mod_headers.c>
+    <FilesMatch "^sitemap.*\.xml$">
+        Header set Cache-Control "max-age=86400, public"
+    </FilesMatch>
+</IfModule>
+
+# Optional: Log AI crawler requests separately for monitoring
+<IfModule mod_rewrite.c>
+    RewriteCond %{ENV:AI_CRAWLER} =1
+    RewriteRule .* - [E=log_ai_crawler:1]
+</IfModule>
+
+# Custom log format for AI crawlers (add to your Apache config if needed)
+# LogFormat "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"" ai_crawler_log
+# CustomLog /var/log/apache2/ai_crawlers.log ai_crawler_log env=log_ai_crawler
+
 ErrorDocument 403     /cgi-sys/403_def.html
 ErrorDocument 404     /cgi-sys/404_def.html
 ErrorDocument 500     /cgi-sys/500_def.html
